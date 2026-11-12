@@ -47,7 +47,7 @@ class Queue:
     def dequeue(self) -> Any:
         try:
             if not self._data:
-                raise IndexError("Dequeue from empty queue")
+                raise IndexError("A pilha de descarte está vazia")
             return self._data.pop(0)
         except IndexError as e:
             print(e)
@@ -56,14 +56,17 @@ class Queue:
     def peek(self) -> Any:
         try:
             if not self._data:
-                raise IndexError("Peek from empty queue")
+                raise IndexError("A pilha de descarte está vazia")
             return self._data[0]
         except IndexError as e:
             print(e)
         return None
-    
+
     def is_empty(self) -> bool:
         return len(self._data) == 0
+
+    def size(self) -> int:
+        return len(self._data)
 
 # CAMPO DE BATALHA (FILA DE PRIORIDADE)
 @dataclass
@@ -73,9 +76,6 @@ class ElementPriority:
 
 
 class PriorityQueue:
-    """Fila de prioridade: o maior valor de prioridade fica na frente.
-    Em caso de empate, quem entrou primeiro continua na frente."""
-
     def __init__(self, capacity: Optional[int] = None):
         self._data: List[ElementPriority] = []
         self.capacity = capacity
@@ -85,7 +85,6 @@ class PriorityQueue:
             print("A fila de prioridade está cheia")
             return False
 
-        # Procura a primeira posição cujo elemento tem prioridade menor
         position = len(self._data)
         for i, element in enumerate(self._data):
             if priority > element.priority:
@@ -123,7 +122,6 @@ class PriorityQueue:
         return len(self._data)
 
     def to_list(self) -> List[Any]:
-        """Itens na ordem da fila, sem removê-los (usado para exibir)."""
         return [element.item for element in self._data]
 
 
@@ -218,7 +216,6 @@ class AttackResult:
 
 
 def build_all_allocations() -> list[tuple[int, int, int]]:
-    """Gera as 73 distribuições válidas de 15 pontos."""
     allocations = []
 
     for pa in range(MIN_POINTS, MAX_POINTS + 1):
@@ -241,8 +238,6 @@ def card_from_allocation(
     focus: str = "balanceada",
     nome: str = "",
 ) -> Card:
-    """Converte pontos internos em atributos visíveis."""
-
     points = (attack_points, defense_points, speed_points)
 
     if any(p < MIN_POINTS or p > MAX_POINTS for p in points):
@@ -290,14 +285,6 @@ def normalize_focus(focus: str) -> str:
 
 
 def build_focus_pool(focus: str) -> list[Card]:
-    """
-    Cria o pool de um tipo.
-
-    O atributo principal:
-        >= 7 pontos
-        > cada um dos demais atributos
-    """
-
     focus = normalize_focus(focus)
     index = FOCUS_INDEX[focus]
     unique: dict[tuple[int, int, int], Card] = {}
@@ -396,7 +383,6 @@ def print_cards(cards: list[Card]) -> None:
 
 
 def menu_generate_many() -> list[Card]:
-    """Gera o baralho aleatório de um jogador e devolve a lista de cartas."""
     amount = 30
     cards = generate_cards(amount)
 
@@ -415,7 +401,7 @@ def menu_generate_many() -> list[Card]:
 # ---- INFOS JOGADORES ----
 MAX_MAO = 10
 MAX_CAMPO = 5
-CARTAS_INICIAIS = 10
+CARTAS_INICIAIS = 5
 PAUSA_ENTRE_TURNOS = 3
 
 
@@ -428,6 +414,25 @@ class Jogador:
         self.pilhaDescarte = Queue()
         self.campo = PriorityQueue(MAX_CAMPO)
 
+    def reabastecer_pilha_compra(self) -> bool:
+        if not self.pilhaCompra.is_empty() or self.pilhaDescarte.is_empty():
+            return False
+
+        cartas = []
+        while not self.pilhaDescarte.is_empty():
+            cartas.append(self.pilhaDescarte.dequeue())
+
+        shuffle(cartas)
+
+        for carta in cartas:
+            self.pilhaCompra.push(carta)
+
+        print(
+            f'\nA pilha de compra de {self.nome} acabou! '
+            f'As {len(cartas)} cartas do descarte foram embaralhadas e voltaram para a pilha de compra.'
+        )
+        return True
+
     def comprar_carta(self, acao) -> bool:
         if len(self.mao) >= MAX_MAO:
             print(f'{self.nome} já está com a mão cheia ({MAX_MAO} cartas).')
@@ -438,17 +443,19 @@ class Jogador:
                 print(f'{self.nome} não tem mais cartas na pilha de descarte.')
                 return False
 
-            self.mao.append(self.pilhaDescarte.pop())
+            self.mao.append(self.pilhaDescarte.dequeue())
             return True
-        
+
         else:
+            self.reabastecer_pilha_compra()
+
             if self.pilhaCompra.is_empty():
                 print(f'{self.nome} não tem mais cartas na pilha de compra.')
                 return False
 
             self.mao.append(self.pilhaCompra.pop())
             return True
-        
+
     def jogar_no_campo(self, numero: int) -> Card:
         if self.campo.is_full():
             raise ValueError(
@@ -484,7 +491,7 @@ def cadastro_jogador() -> list[Jogador]:
 
         jogadores.append(jogador)
 
-    input('Pressione enter para iniciar o jogo')
+    input('Aperte enter para iniciar o jogo')
     return jogadores
 
 
@@ -520,6 +527,8 @@ def Main():
         comprou = False
         jogou = False
 
+        jogador.reabastecer_pilha_compra()
+
         while True:
             print(f'\n===== Turno {turno} =====')
             print(f'Vez de: {jogador.nome}')
@@ -527,7 +536,8 @@ def Main():
             mostrar_campo(f'Campo de {inimigo.nome} (inimigo)', inimigo)
             mostrar_campo(f'Campo de {jogador.nome} (você)', jogador)
 
-            print(f'\nCartas na pilha de compra: {jogador.pilhaCompra.size()}')
+            print(f'\nCartas na pilha de descarte {jogador.pilhaDescarte.size()}')
+            print(f'Cartas na pilha de compra: {jogador.pilhaCompra.size()}')
             print(f'Cartas na mão: {len(jogador.mao)}')
             print_cards(jogador.mao)
 
