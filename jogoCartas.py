@@ -481,13 +481,16 @@ def cadastro_jogador() -> list[Jogador]:
         jogador = Jogador(nomeJogador)
 
         cartas = menu_generate_many()
-        for carta in cartas:
-            jogador.pilhaCompra.push(carta)
 
         print(f'\nNome de jogador: {jogador.nome}')
         print('Baralho de jogador:')
         print_cards(cartas)
         print()
+
+        shuffle(cartas)
+
+        for carta in cartas:
+            jogador.pilhaCompra.push(carta)
 
         jogadores.append(jogador)
 
